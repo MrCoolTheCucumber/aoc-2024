@@ -4,6 +4,8 @@ use std::{
     io::{BufRead, BufReader},
 };
 
+use rayon::prelude::*;
+
 fn get_lines() -> Vec<String> {
     let file = File::open("../input.txt").expect("no input file found");
     BufReader::new(file)
@@ -53,7 +55,7 @@ fn main() {
     let mut current_direction = Direction::Up;
     let mut unique_positions = HashSet::new();
 
-    while cur_x >= 0 && cur_x < height && cur_y >= 0 && cur_y < width {
+    while in_bounds(cur_x, cur_y, width, height) {
         unique_positions.insert((cur_x, cur_y));
 
         let (next_x, next_y) = current_direction.next_pos(cur_x, cur_y);
@@ -76,18 +78,25 @@ fn main() {
     let mut count = 0;
 
     for x in 0..height {
-        for y in 0..width {
-            if lines[x as usize][y as usize] == '^' {
-                continue;
-            }
+        let total = (0..width)
+            .into_par_iter()
+            .map(|y| {
+                if lines[x as usize][y as usize] == '^' || lines[x as usize][y as usize] == '#' {
+                    return 0;
+                }
 
-            let mut lines = lines.clone();
-            lines[x as usize][y as usize] = '#';
+                let mut lines = lines.clone();
+                lines[x as usize][y as usize] = '#';
 
-            if causes_loop(&lines, width, height) {
-                count += 1;
-            }
-        }
+                if causes_loop(&lines, width, height) {
+                    1
+                } else {
+                    0
+                }
+            })
+            .sum::<i32>();
+
+        count += total;
     }
 
     println!("count: {count}");
@@ -114,7 +123,7 @@ fn causes_loop(lines: &[Vec<char>], width: i32, height: i32) -> bool {
     let mut current_direction = Direction::Up;
     let mut unique_positions = HashSet::new();
 
-    while cur_x >= 0 && cur_x < height && cur_y >= 0 && cur_y < width {
+    while in_bounds(cur_x, cur_y, width, height) {
         unique_positions.insert((cur_x, cur_y, current_direction));
 
         let (next_x, next_y) = current_direction.next_pos(cur_x, cur_y);
